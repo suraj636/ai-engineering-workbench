@@ -1,0 +1,15 @@
+fastapi
+uvicorn[standard]
+langchain
+langchain-openai
+langchain-anthropic
+pydantic
+pydantic-settings
+python-dotenv
+duckdb
+copilotkit
+httpx
+pandas
+Faker
+numpy
+streamlit

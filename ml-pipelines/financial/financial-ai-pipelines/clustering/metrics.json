@@ -1,0 +1,20 @@
+{
+    "dataset_description": "Synthetically generated dataset representing customer personas based on 'annual_income' and 'spending_score' to segment customers into 4 distinct groups.",
+    "model": "KMeans",
+    "parameters": {
+        "algorithm": "lloyd",
+        "copy_x": true,
+        "init": "k-means++",
+        "max_iter": 300,
+        "n_clusters": 4,
+        "n_init": "auto",
+        "random_state": 42,
+        "tol": 0.0001,
+        "verbose": 0
+    },
+    "metrics": {
+        "silhouette_score": 0.5654932074362989,
+        "calinski_harabasz_score": 927.7996914730128,
+        "davies_bouldin_score": 0.6059400297073657
+    }
+}

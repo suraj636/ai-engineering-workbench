@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DBPilot Platform</title>
+    <meta name="description" content="Natural Language Query interface for interacting with databases seamlessly.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Background Elements -->
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    
+    <!-- Connection Screen -->
+    <div id="connection-screen" class="screen glass-panel active">
+        <div class="icon-container">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+        </div>
+        <h1>DBPilot Platform</h1>
+        <p>Connect your data source to begin</p>
+        
+        <form id="connect-form">
+            <div class="input-group">
+                <label for="db-path">Database Path / URL</label>
+                <input type="text" id="db-path" value="datasets/domain_1_device_mgmt/db.duckdb" placeholder="Enter path...">
+            </div>
+            <button type="submit" class="btn primary-btn">
+                Connect
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+            </button>
+        </form>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div id="dashboard-screen" class="screen hidden">
+        <header class="glass-header">
+            <div class="logo">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+                <span>DBPilot Chat</span>
+            </div>
+            <div class="nav-controls">
+                <button id="home-btn" class="btn ghost-btn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                    Home
+                </button>
+                <button id="disconnect-btn" class="btn ghost-btn text-rose">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                    Disconnect
+                </button>
+            </div>
+        </header>
+
+        <main class="dashboard-content">
+            <!-- Left Panel: Chat Interface -->
+            <section class="chat-panel glass-panel">
+                <div class="panel-header">
+                    <h2>AI Assistant</h2>
+                    <span class="status-indicator"></span>
+                </div>
+                <div class="chat-history" id="chat-history">
+                    <div class="message system-msg">
+                        <div class="avatar">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="12" cy="7" r="4"></circle>
+                            </svg>
+                        </div>
+                        <div class="msg-content">Hello! What would you like to know about your database?</div>
+                    </div>
+                </div>
+                <div class="chat-input-area">
+                    <textarea id="chat-input" placeholder="Type your question..." rows="1"></textarea>
+                    <button id="send-btn" class="btn icon-btn" aria-label="Send Message">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                    </button>
+                </div>
+            </section>
+
+            <!-- Right Panel: Data Visualization -->
+            <section class="data-panel glass-panel">
+                <div class="panel-header">
+                    <h2>Live Data Table</h2>
+                    <div class="loading-state hidden" id="loading-indicator">
+                        <div class="spinner"></div>
+                        <span>Executing Query...</span>
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table id="data-table">
+                        <thead id="table-head">
+                            <!-- Dynamically populated -->
+                        </thead>
+                        <tbody id="table-body">
+                            <tr>
+                                <td colspan="100%" class="empty-state">No data fetched yet.<br><span>Ask a question in the chat to see results.</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="sql-debugger hidden" id="sql-debugger">
+                    <div class="debugger-header">
+                        <span>Generated SQL</span>
+                        <button id="close-sql-btn">×</button>
+                    </div>
+                    <code id="sql-code-content"></code>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+# LiteLLM Configuration
+# Using OpenAI as the LLM provider
+model_list:
+  - model_name: my-custom-model
+    litellm_params:
+      # OpenAI model: gpt-4o-mini
+      model: openai/gpt-4o-mini
+      # API key from environment variable
+      api_key: os.environ/OPENAI_API_KEY

@@ -1,0 +1,8 @@
+jax
+flax
+grain
+optax
+orbax-checkpoint
+tokenizers
+gradio
+matplotlib

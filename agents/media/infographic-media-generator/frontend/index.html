@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Media Agent | Infographic Generator</title>
+    <meta name="description" content="Generate beautiful professional infographics from blog URLs using AI.">
+    <!-- Google Fonts for Modern Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="background-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+    </div>
+    
+    <div class="container">
+        <header>
+            <h1>AI Media Agent</h1>
+            <p>Transform your blog posts into stunning professional infographics in seconds.</p>
+        </header>
+
+        <main>
+            <form id="generate-form" class="glass-panel">
+                <div class="input-group">
+                    <label for="url-input">Blog URL</label>
+                    <input 
+                        type="url" 
+                        id="url-input" 
+                        name="url" 
+                        placeholder="https://your-blog-post-url.com" 
+                        required
+                        autocomplete="off"
+                    >
+                </div>
+                <button type="submit" id="submit-btn">
+                    <span class="btn-text">Generate Infographic</span>
+                    <span class="spinner hidden"></span>
+                </button>
+                <div id="status-message" class="status-message hidden">Initializing...</div>
+            </form>
+
+            <div id="result-container" class="glass-panel hidden">
+                <h2>Generated Infographic</h2>
+                <div id="image-wrapper">
+                    <!-- Image will be injected here -->
+                </div>
+                <div class="actions">
+                    <a id="download-btn" class="btn secondary hidden" download>Download Image</a>
+                </div>
+            </div>
+            
+            <div id="error-container" class="glass-panel error hidden">
+                <!-- Error messages will be injected here -->
+            </div>
+        </main>
+    </div>
+
+    <script src="/script.js"></script>
+</body>
+</html>

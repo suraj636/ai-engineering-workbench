@@ -1,0 +1,14 @@
+google-genai==1.75.0
+google-cloud-aiplatform[evaluation]==1.150.0
+google-adk==1.32.0
+python-dotenv==1.2.2
+requests==2.33.1
+numpy==2.2.6
+pandas==2.3.3
+matplotlib==3.10.9
+pillow==12.2.0
+sentencepiece==0.2.1
+torch==2.11.0
+transformers==5.8.0
+fastapi>=0.100.0
+uvicorn>=0.20.0
