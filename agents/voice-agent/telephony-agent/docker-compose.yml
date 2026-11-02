@@ -1,0 +1,35 @@
+# Docker Compose for the Streaming Telephony Voice Agent.
+#
+# Run:        docker compose up -d --build
+# Logs:       docker compose logs -f
+# Stop:       docker compose down
+#
+# Config comes entirely from .env at the repo root (same file as local dev;
+# copy .env.example to create it). The app reads env once at import time, so
+# changing .env requires `docker compose up -d --force-recreate`.
+#
+# Single process by design — in-memory call state and the /ws/events dashboard
+# bus are per-process. Never scale this service or add uvicorn workers.
+#
+# The container serves plain HTTP on 8000. Plivo requires public HTTPS:
+# whatever sits in front (cloud LB, cloudflared, ngrok) terminates TLS and
+# PUBLIC_BASE_URL in .env must be that exact origin, no trailing slash.
+
+services:
+  voice-agent:
+    build: .
+    image: itsbot-voice-agent:latest
+    container_name: voice-agent
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "8000:8000"
+    volumes:
+      # Call history (SQLite) survives rebuilds.
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s

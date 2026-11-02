@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Telephony Agent</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="glow glow-a"></div>
+  <div class="glow glow-b"></div>
+
+  <div class="app">
+    <aside class="sidebar">
+      <a class="brand" href="#web" aria-label="Telephony Agent console">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M12 3v10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            <path d="M8 6.5v3M16 6.5v3M6 9v3M18 9v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            <path d="M12 16.5c3.1 0 5.5-2.1 5.5-4.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            <path d="M9 20h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <span class="brand-text">
+          <strong>Telephony Agent</strong>
+          <span>console</span>
+        </span>
+      </a>
+
+      <nav class="nav" aria-label="Sections">
+        <a class="nav-item" href="#model" data-page="model">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 8h10M18 8h2M4 16h2M10 16h10" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="16" cy="8" r="2.2" stroke="currentColor" stroke-width="1.7"/><circle cx="8" cy="16" r="2.2" stroke="currentColor" stroke-width="1.7"/></svg>
+          <span>Model config</span>
+        </a>
+        <a class="nav-item" href="#inbound" data-page="inbound">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 4h3l1.6 4-2 1.4a12 12 0 0 0 5 5l1.4-2L18 14v3a2 2 0 0 1-2.2 2A15 15 0 0 1 3 6.2 2 2 0 0 1 5 4Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M15 4h5m0 0v5m0-5-6 6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>Inbound call</span>
+        </a>
+        <a class="nav-item" href="#outbound" data-page="outbound">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 4h3l1.6 4-2 1.4a12 12 0 0 0 5 5l1.4-2L18 14v3a2 2 0 0 1-2.2 2A15 15 0 0 1 3 6.2 2 2 0 0 1 5 4Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M15 9l6-6m0 0h-5m5 0v5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>Outbound call</span>
+        </a>
+        <a class="nav-item" href="#live" data-page="live" id="nav-live">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 12h3l2.2-6 3.6 12 2.6-8 2 4H21" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>Live call</span>
+        </a>
+        <a class="nav-item" href="#web" data-page="web">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.7"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M9 21h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+          <span>Web call</span>
+        </a>
+        <a class="nav-item" href="#cost" data-page="cost">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+          <span>Cost &amp; latency</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-foot">
+        <span class="pulse-dot" id="sidebar-indicator"></span>
+        <div class="flow">
+          <strong>Call flow</strong>
+          <p>
+            <span>Caller → Plivo or browser mic → FastAPI, over a WebSocket (μ-law 8 kHz).</span>
+            <span>AssemblyAI transcribes, Sarvam 105B answers, TTS speaks each sentence.</span>
+            <span>Audio returns on the same socket; speaking over it cancels the reply.</span>
+          </p>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="page-heading">
+          <h1 id="page-title">Web call</h1>
+          <p id="page-subtitle">Talk to the agent from this browser. Your microphone is the caller.</p>
+        </div>
+        <div class="topbar-right">
+          <div class="status-chips" id="status-chips" aria-label="System status"></div>
+          <div class="warm" id="net">
+            <button type="button" class="chip warm-pill" id="net-pill" aria-haspopup="dialog" aria-expanded="false" aria-controls="net-panel">
+              <i class="dot" id="net-dot"></i><strong>Network check</strong><span class="warm-count" id="net-count"></span>
+              <svg class="warm-caret" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m7 10 5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <div class="warm-panel net-panel" id="net-panel" role="dialog" aria-label="Network check" aria-hidden="true">
+              <div class="warm-head">
+                <div>
+                  <span class="kicker">Network quality</span>
+                  <p id="net-summary">Not measured yet.</p>
+                </div>
+                <button type="button" class="btn btn-ghost btn-sm" id="net-run">Run check</button>
+              </div>
+              <p class="net-advice" id="net-advice" hidden></p>
+              <ul class="warm-list" id="net-list"></ul>
+              <details class="net-hosts" id="net-hosts-wrap" hidden>
+                <summary>Per provider</summary>
+                <table class="net-table"><thead><tr><th>Provider</th><th>DNS</th><th>Connect</th><th>TLS</th><th>Fail</th></tr></thead><tbody id="net-hosts"></tbody></table>
+              </details>
+              <p class="warm-foot">Measured: this server to AssemblyAI, the LLM, the TTS and Plivo's API (DNS, TCP, TLS only: no API keys, no cost). Not measured: the caller's phone to Plivo to this server. Cached DNS answers are fast, so a stall may need a few runs to show.</p>
+            </div>
+          </div>
+          <div class="warm" id="warm">
+            <button type="button" class="chip warm-pill" id="warm-pill" aria-haspopup="dialog" aria-expanded="false" aria-controls="warm-panel">
+              <i class="dot" id="warm-dot"></i><strong>Warm-up status</strong><span class="warm-count" id="warm-count"></span>
+              <svg class="warm-caret" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m7 10 5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <div class="warm-panel" id="warm-panel" role="dialog" aria-label="Warm-up status" aria-hidden="true">
+              <div class="warm-head">
+                <div>
+                  <span class="kicker">Provider warm-up</span>
+                  <p id="warm-summary">Checking providers…</p>
+                </div>
+                <button type="button" class="btn btn-ghost btn-sm" id="warm-rerun">Re-run</button>
+              </div>
+              <ul class="warm-list" id="warm-list"></ul>
+              <p class="warm-foot">Each check opens a real provider session. A stale error clears when you re-run.</p>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- ============================ MODEL CONFIG ============================ -->
+      <section class="page" id="page-model" hidden>
+        <div class="banner" id="config-warning" hidden>
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 9v4m0 4h.01M10.3 4.9 2.6 18a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 4.9a2 2 0 0 0-3.4 0Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+          <div>
+            <strong>Credentials needed</strong>
+            <span id="config-warning-text"></span>
+          </div>
+        </div>
+
+        <div class="config-grid">
+          <section class="card">
+            <div class="card-head">
+              <span class="kicker">Speech to text</span>
+              <h2>AssemblyAI</h2>
+              <p>Universal Streaming, English, continuous audio.</p>
+            </div>
+            <div class="field">
+              <label for="cfg-asr">Speech model</label>
+              <select id="cfg-asr"></select>
+            </div>
+            <div class="readout-grid">
+              <div><span>Encoding</span><strong>pcm_s16le</strong></div>
+              <div><span>Sample rate</span><strong>16 kHz</strong></div>
+              <div><span>Turn detection</span><strong class="teal">end_of_turn</strong></div>
+              <div><span>Barge-in</span><strong>SpeechStarted</strong></div>
+            </div>
+            <p class="note">Turn boundaries come from AssemblyAI's semantic end-of-turn events, never from a fixed silence timer.</p>
+          </section>
+
+          <section class="card">
+            <div class="card-head">
+              <span class="kicker">Language model</span>
+              <h2>Sarvam 105B</h2>
+              <p>Streaming SSE, thinking disabled for voice latency.</p>
+            </div>
+            <div class="field">
+              <label for="cfg-sarvam">Model</label>
+              <select id="cfg-sarvam"></select>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label for="cfg-temp">Temperature</label>
+                <input id="cfg-temp" type="number" min="0" max="2" step="0.1">
+              </div>
+              <div class="field">
+                <label for="cfg-max-tokens">Max tokens</label>
+                <input id="cfg-max-tokens" type="number" min="32" max="2048" step="1">
+              </div>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="card-head">
+              <span class="kicker">Text to speech</span>
+              <h2 id="tts-title">Inworld TTS 2</h2>
+              <p id="tts-subtitle">Persistent WebSocket, sentence-boundary streaming.</p>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label for="cfg-tts-provider">Provider</label>
+                <select id="cfg-tts-provider">
+                  <option value="inworld">Inworld TTS 2</option>
+                  <option value="speechify">Speechify Simba 3.5</option>
+                  <option value="sarvam">Sarvam Bulbul v4 Flash</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="cfg-tts-model">Model</label>
+                <select id="cfg-tts-model"></select>
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field" id="tts-rate-field">
+                <label for="cfg-rate">Speaking rate</label>
+                <input id="cfg-rate" type="number" min="0.5" max="1.5" step="0.05">
+                <span class="field-hint" id="tts-rate-hint">Inworld only</span>
+              </div>
+              <div class="field" id="tts-delivery-field">
+                <label for="cfg-delivery">Delivery mode</label>
+                <select id="cfg-delivery">
+                  <option value="STABLE">Stable</option>
+                  <option value="BALANCED">Balanced</option>
+                  <option value="CREATIVE">Creative</option>
+                </select>
+              </div>
+            </div>
+            <p class="note" id="tts-note">Streams the first sentence while the rest of the answer is still being generated.</p>
+            <div class="readout-grid">
+              <div><span>Output</span><strong>μ-law 8 kHz</strong></div>
+              <div><span>Plivo format</span><strong class="teal">native</strong></div>
+            </div>
+          </section>
+
+          <section class="card card-wide">
+            <div class="card-head">
+              <span class="kicker">Text to speech</span>
+              <h2 id="voice-title">Voice</h2>
+              <p>Pick the voice the agent speaks with. Hover a voice for details.</p>
+            </div>
+            <div class="cost-est" id="tts-cost-est" hidden>
+              <div class="cost-est-head">
+                <span class="kicker">Estimated cost per minute</span>
+                <span class="cost-est-basis" id="cost-est-basis"></span>
+              </div>
+              <table class="cost-grid">
+                <thead id="cost-est-head"></thead>
+                <tbody id="cost-est-rows"></tbody>
+              </table>
+              <p class="note" id="cost-est-note"></p>
+            </div>
+            <div class="field">
+              <label id="voice-tabs-label" class="sr-only">Voice</label>
+              <select id="cfg-voice" class="sr-only" tabindex="-1" aria-hidden="true"></select>
+              <div class="voice-tabs" id="voice-tabs" role="radiogroup" aria-labelledby="voice-tabs-label"></div>
+              <span class="field-hint" id="tts-voice-hint"></span>
+            </div>
+          </section>
+
+          <section class="card card-wide save-bar">
+            <div class="config-actions">
+              <button class="btn btn-primary" id="save-config">Save configuration</button>
+              <span class="save-state" id="save-state" role="status"></span>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <!-- ============================== INBOUND =============================== -->
+      <section class="page" id="page-inbound" hidden>
+        <div class="grid-2">
+          <section class="card">
+            <div class="card-head">
+              <span class="kicker">Telephony</span>
+              <h2>Webhook configuration</h2>
+              <p>Point your Plivo application's Answer URL at the endpoint below.</p>
+            </div>
+            <div class="field">
+              <label>Inbound Answer URL</label>
+              <div class="copy-row">
+                <code id="inbound-url">—</code>
+                <button class="icon-btn" data-copy="#inbound-url" title="Copy">Copy</button>
+              </div>
+            </div>
+            <div class="field">
+              <label>Status callback URL</label>
+              <div class="copy-row">
+                <code id="status-url">—</code>
+                <button class="icon-btn" data-copy="#status-url" title="Copy">Copy</button>
+              </div>
+            </div>
+            <div class="readout-grid">
+              <div><span>Plivo number</span><strong id="inbound-number">not configured</strong></div>
+              <div><span>Transport</span><strong>μ-law · 8 kHz</strong></div>
+              <div><span>Stream mode</span><strong class="teal">bidirectional</strong></div>
+              <div><span>WebSocket</span><strong>/ws/plivo</strong></div>
+            </div>
+            <div class="steps">
+              <div class="step"><span>1</span><p>Expose this server over HTTPS (ngrok in development) and set <code>PUBLIC_BASE_URL</code>.</p></div>
+              <div class="step"><span>2</span><p>In Plivo, set the application Answer URL to the inbound endpoint above (POST).</p></div>
+              <div class="step"><span>3</span><p>Call your Plivo number. The agent streams, transcribes and replies in real time.</p></div>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="card-head">
+              <span class="kicker">Live state</span>
+              <h2>Inbound activity</h2>
+              <p>Current call and recent inbound sessions.</p>
+            </div>
+            <div class="live-status" id="inbound-live">
+              <span class="status-pill idle"><span class="dot"></span>No active inbound call</span>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead><tr><th>Started</th><th>From</th><th>Duration</th><th>Status</th><th>Cost</th></tr></thead>
+                <tbody id="inbound-calls"></tbody>
+              </table>
+            </div>
+            <div class="empty" id="inbound-empty">No inbound calls yet.</div>
+          </section>
+        </div>
+      </section>
+
+      <!-- ============================= OUTBOUND =============================== -->
+      <section class="page" id="page-outbound" hidden>
+        <div class="grid-2">
+          <section class="card">
+            <div class="card-head">
+              <span class="kicker">Telephony</span>
+              <h2>Place an outbound call</h2>
+              <p>Plivo dials the destination, then opens the same bidirectional stream.</p>
+            </div>
+            <div class="field">
+              <label for="outbound-to">Destination number</label>
+              <input id="outbound-to" type="tel" placeholder="+14155550123" autocomplete="tel">
+              <span class="field-hint">E.164 format. Your Plivo number is used as caller ID.</span>
+            </div>
+            <div class="readout-grid">
+              <div><span>Caller ID</span><strong id="outbound-from">not configured</strong></div>
+              <div><span>Answer URL</span><strong id="outbound-answer">—</strong></div>
+            </div>
+            <div class="config-actions">
+              <button class="btn btn-primary" id="place-call">Place call</button>
+              <span class="save-state" id="outbound-state" role="status"></span>
+            </div>
+            <p class="note">Outbound calling requires <code>PUBLIC_BASE_URL</code> to be publicly reachable over HTTPS, plus a Plivo number enabled for outbound voice.</p>
+          </section>
+
+          <section class="card">
+            <div class="card-head">
+              <span class="kicker">Live state</span>
+              <h2>Outbound activity</h2>
+              <p>Recent outbound sessions and their outcomes.</p>
+            </div>
+            <div class="live-status" id="outbound-live">
+              <span class="status-pill idle"><span class="dot"></span>No active outbound call</span>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead><tr><th>Started</th><th>To</th><th>Duration</th><th>Status</th><th>Cost</th></tr></thead>
+                <tbody id="outbound-calls"></tbody>
+              </table>
+            </div>
+            <div class="empty" id="outbound-empty">No outbound calls yet.</div>
+          </section>
+        </div>
+      </section>
+
+      <!-- =============================== LIVE CALL ============================= -->
+      <section class="page" id="page-live" hidden>
+        <section class="idle-card" id="live-idle">
+          <div class="wave-idle" aria-hidden="true">
+            <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+          </div>
+          <h3>No ongoing call</h3>
+          <p>When an inbound or outbound call connects, its live dialogue, detection log and running cost appear here. When the call ends, a summary with cost, latency and the full transcript opens automatically.</p>
+          <div class="idle-meta">
+            <span><i class="dot teal"></i>Waiting for a call</span>
+            <button class="btn btn-ghost btn-sm" id="live-last-summary" type="button" hidden>View last call summary</button>
+          </div>
+        </section>
+
+        <section class="card live-banner live-panel" hidden>
+          <div class="live-banner-main">
+            <span class="live-badge" id="live-badge">
+              <i class="dot teal"></i>
+              <span id="live-direction">Inbound</span>
+            </span>
+            <div>
+              <h2 id="live-caller">Caller</h2>
+              <p id="live-meta">Connecting to the voice pipeline…</p>
+            </div>
+          </div>
+          <div class="live-banner-right">
+            <span class="call-timer" id="live-timer">00:00</span>
+            <span class="status-pill" id="live-status"><span class="dot"></span>Connecting</span>
+            <button class="btn btn-danger btn-sm" id="live-hangup" type="button">End call</button>
+          </div>
+        </section>
+
+        <div class="live-stats live-panel" aria-label="Live call usage" hidden>
+          <div><span>Duration</span><strong id="live-duration">00:00</strong></div>
+          <div><span>ASR session</span><strong id="live-asr">0.0 s</strong></div>
+          <div><span>Generated chars</span><strong id="live-gen-chars">0</strong></div>
+          <div><span>TTS chars</span><strong id="live-tts-chars">0</strong></div>
+          <div><span>Tokens</span><strong id="live-tokens">0</strong></div>
+          <div><span>Total USD</span><strong id="live-usd">—</strong></div>
+          <div class="accent"><span>Total INR</span><strong id="live-inr">—</strong></div>
+        </div>
+
+        <div class="live-split live-panel" hidden>
+          <section class="card live-pane">
+            <header class="live-pane-head">
+              <div>
+                <span class="kicker">Conversation</span>
+                <h2>Dialogue</h2>
+              </div>
+              <span class="summary-pill" id="live-turn-count">0 turns</span>
+            </header>
+            <div class="live-stream" id="live-transcript" aria-live="polite">
+              <div class="live-empty" id="live-transcript-empty">
+                Caller and agent turns appear here as the call progresses.
+              </div>
+            </div>
+            <footer class="live-pane-foot">
+              TTFT = first LLM token · TTFA = TTS first audio after TTFT (net)
+            </footer>
+          </section>
+
+          <section class="card live-pane">
+            <header class="live-pane-head">
+              <div>
+                <span class="kicker">Detection log</span>
+                <h2>What the agent heard</h2>
+              </div>
+              <span class="summary-pill" id="live-log-count">0 events</span>
+            </header>
+            <div class="live-stream live-log" id="live-log" aria-live="polite"></div>
+            <footer class="live-pane-foot">
+              Speech detection, turn, latency, barge-in and playout events in order.
+            </footer>
+          </section>
+        </div>
+      </section>
+
+      <!-- =============================== WEB CALL ============================= -->
+      <section class="page" id="page-web">
+        <section class="card call-card">
+          <div class="card-head">
+            <span class="kicker">Browser audio</span>
+            <h2>Call from this browser</h2>
+            <p>Your microphone is the caller. The agent runs the same pipeline as a phone call.</p>
+          </div>
+          <div class="form-row call-form">
+            <div class="field">
+              <label for="dial-select">Dial</label>
+              <select id="dial-select">
+                <option value="browser">Browser microphone · direct</option>
+                <option value="simulated">Simulated agent line</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="web-voice">Voice</label>
+              <select id="web-voice"></select>
+            </div>
+            <div class="field field-button">
+              <label>&nbsp;</label>
+              <button class="btn btn-primary" id="start-call">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 5.5v13l10-6.5-10-6.5Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+                Start test call
+              </button>
+            </div>
+          </div>
+          <p class="hint" id="web-hint">Headphones recommended. Echo cancellation is enabled, but headphones keep barge-in clean.</p>
+        </section>
+
+        <section class="idle-card" id="idle-visual">
+          <div class="wave-idle" aria-hidden="true">
+            <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+          </div>
+          <h3>No active call</h3>
+          <p>Start a test call to stream microphone audio through AssemblyAI, Sarvam and the selected TTS provider in real time.</p>
+          <div class="idle-meta">
+            <span><i class="dot teal"></i>WebSocket ready</span>
+            <span><i class="dot teal"></i>8 kHz μ-law</span>
+            <span><i class="dot teal"></i>Barge-in on</span>
+          </div>
+        </section>
+
+        <section class="live-grid" id="live-call" hidden>
+          <section class="card transcript-card">
+            <div class="live-head">
+              <div>
+                <span class="kicker">Live transcript</span>
+                <h2>Conversation</h2>
+              </div>
+              <div class="live-controls">
+                <span class="status-pill" id="call-status"><span class="dot"></span>Connecting</span>
+                <span class="call-timer" id="call-timer">00:00</span>
+                <button class="btn btn-danger btn-sm" id="end-call">End call</button>
+              </div>
+            </div>
+            <div class="transcript" id="transcript" aria-live="polite">
+              <div class="transcript-empty" id="transcript-empty">The transcript appears here as soon as the agent connects.</div>
+            </div>
+            <div class="mic-row">
+              <span class="mic-label"><i class="dot" id="mic-dot"></i>Mic input</span>
+              <div class="mic-bars" id="mic-bars" aria-hidden="true"></div>
+              <span class="mic-hint" id="mic-hint">Waiting for microphone</span>
+            </div>
+          </section>
+
+          <aside class="live-side">
+            <section class="card">
+              <div class="card-head compact">
+                <span class="kicker">Turn latency</span>
+                <h2>Response breakdown</h2>
+              </div>
+              <div class="latency-grid">
+                <div class="latency-tile"><span>ASR endpoint</span><strong id="lat-asr">—</strong><em>ms</em></div>
+                <div class="latency-tile"><span>LLM first token</span><strong id="lat-llm">—</strong><em>ms</em></div>
+                <div class="latency-tile"><span>TTS net TTFA</span><strong id="lat-tts">—</strong><em>ms</em></div>
+                <div class="latency-tile accent"><span>First audio out</span><strong id="lat-total">—</strong><em>ms</em></div>
+              </div>
+              <p class="note">End-of-turn → first audio queued to the caller. Measured per turn, not estimated.</p>
+            </section>
+
+            <section class="card">
+              <div class="card-head compact">
+                <span class="kicker">This call</span>
+                <h2>Usage</h2>
+              </div>
+              <div class="usage-list">
+                <div><span>LLM tokens</span><strong id="use-tokens">0</strong></div>
+                <div><span>TTS characters</span><strong id="use-tts">0</strong></div>
+                <div><span>ASR audio</span><strong id="use-asr">0.0 s</strong></div>
+                <div><span>Estimated cost</span><strong id="use-cost">—</strong></div>
+              </div>
+              <p class="note" id="use-note">Estimates use static official rates; see Cost dashboard.</p>
+            </section>
+          </aside>
+        </section>
+      </section>
+
+      <!-- ================================ COST ================================ -->
+      <section class="page" id="page-cost" hidden>
+        <section class="card hist-card" id="hist-card">
+          <div class="hist-head">
+            <div>
+              <span class="kicker">Saved calls</span>
+              <h2>Cost &amp; latency</h2>
+              <p id="hist-sub">Last 10 calls of each type. Finished calls are saved and survive a restart.</p>
+            </div>
+            <div class="hist-tabs" id="hist-tabs" role="tablist" aria-label="Call type">
+              <button type="button" class="hist-tab is-active" role="tab" data-type="all">All</button>
+              <button type="button" class="hist-tab" role="tab" data-type="inbound">Inbound</button>
+              <button type="button" class="hist-tab" role="tab" data-type="outbound">Outbound</button>
+              <button type="button" class="hist-tab" role="tab" data-type="web">Web</button>
+            </div>
+          </div>
+          <div class="stat-grid hist-summary" id="hist-summary"></div>
+          <div class="table-wrap">
+            <table class="data-table wide hist-table">
+              <thead>
+                <tr>
+                  <th>Started</th><th>Type</th><th>Duration</th><th>Turns</th><th>Stack used</th>
+                  <th>Median TTFT</th><th>Median TTFA</th><th>Median total</th><th>Cost</th><th>Per minute</th><th></th>
+                </tr>
+              </thead>
+              <tbody id="hist-rows"></tbody>
+            </table>
+          </div>
+          <div class="empty" id="hist-empty" hidden>No saved calls yet. Calls appear here after they end.</div>
+          <p class="note">TTFT is the time to the language model's first token; TTFA is the text-to-speech time to first audio, measured from that first token. Total turn time is TTFT plus TTFA for each turn. Medians and 95th percentiles use completed response turns only (the greeting and interrupted turns are excluded). Cost per minute is total estimated cost divided by total call minutes. Latency is measured at the server, not on the caller's phone line.</p>
+        </section>
+      </section>
+
+      <!-- ========================== CALL ANALYSIS (detail) ===================== -->
+      <section class="page" id="page-costdetail" hidden>
+        <div class="detail-top">
+          <button class="btn btn-ghost btn-sm" id="detail-back" type="button">← Back</button>
+          <span class="detail-id" id="detail-id"></span>
+        </div>
+        <div class="empty" id="detail-error" hidden></div>
+        <div id="detail-body" hidden>
+          <section class="card detail-card">
+            <div class="detail-grid" id="detail-stack"></div>
+          </section>
+          <div class="stat-grid detail-stats" id="detail-stats"></div>
+          <section class="card summary-card summary-usage-card" id="detail-llm-card">
+            <div class="summary-card-head">
+              <div>
+                <span class="kicker">Language model</span>
+                <h3>LLM usage</h3>
+              </div>
+              <span class="summary-pill" id="detail-llm-pill">—</span>
+            </div>
+            <div class="summary-usage-grid" id="detail-llm-grid"></div>
+            <p class="llm-note" id="detail-llm-note"></p>
+          </section>
+          <section class="card detail-card">
+            <div class="card-head compact">
+              <span class="kicker">Transcript</span>
+              <h2>Turn by turn</h2>
+              <p id="detail-turn-note"></p>
+            </div>
+            <div class="detail-turns" id="detail-turns"></div>
+          </section>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+
+  <!-- ============================ POST-CALL SUMMARY ======================== -->
+  <div class="summary-modal" id="summary-modal" hidden>
+    <div class="summary-backdrop" data-summary-close></div>
+    <div class="summary-shell" role="dialog" aria-modal="true" aria-labelledby="summary-title">
+      <header class="summary-head">
+        <div>
+          <span class="kicker">Post-call analysis</span>
+          <h2 id="summary-title">Call complete</h2>
+          <p id="summary-subtitle">—</p>
+        </div>
+        <div class="summary-actions">
+          <button class="btn btn-ghost btn-sm" id="summary-toggle" type="button">View transcript</button>
+          <button class="btn btn-primary btn-sm" id="summary-back" type="button">Back to call</button>
+          <button class="icon-btn summary-close" id="summary-close" type="button" aria-label="Close summary">✕</button>
+        </div>
+      </header>
+
+      <div class="summary-view" id="summary-overview">
+        <section class="card summary-card summary-usage-card">
+          <div class="summary-card-head">
+            <div>
+              <span class="kicker">Call totals</span>
+              <h3>Usage &amp; spend</h3>
+            </div>
+            <span class="summary-pill" id="summary-usage-pill">—</span>
+          </div>
+          <div class="summary-usage-grid">
+            <div><span>Duration</span><strong id="summary-duration">—</strong><em>total call seconds</em></div>
+            <div><span>ASR session</span><strong id="summary-asr">—</strong><em>billed</em></div>
+            <div><span>Generated chars</span><strong id="summary-gen-chars">—</strong><em>Sarvam output</em></div>
+            <div><span>TTS chars</span><strong id="summary-tts-chars">—</strong><em>spoken</em></div>
+            <div><span>Total chars</span><strong id="summary-total-chars">—</strong><em>generated + spoken</em></div>
+            <div><span>Tokens</span><strong id="summary-tokens">—</strong><em id="summary-tokens-sub">in · out</em></div>
+            <div><span>Total USD</span><strong id="summary-usd">—</strong><em>estimate</em></div>
+            <div class="accent"><span>Total INR</span><strong id="summary-inr">—</strong><em id="summary-inr-note">₹95/USD</em></div>
+          </div>
+        </section>
+
+        <section class="card summary-card summary-usage-card" id="summary-llm-card">
+          <div class="summary-card-head">
+            <div>
+              <span class="kicker">Language model</span>
+              <h3>LLM usage</h3>
+            </div>
+            <span class="summary-pill" id="summary-llm-pill">—</span>
+          </div>
+          <div class="summary-usage-grid" id="summary-llm-grid"></div>
+          <p class="llm-note" id="summary-llm-note"></p>
+        </section>
+
+        <div class="summary-grid">
+          <section class="card summary-card">
+            <div class="summary-card-head">
+              <div>
+                <span class="kicker">Cost analysis</span>
+                <h3>Estimated spend</h3>
+              </div>
+              <div class="summary-total">
+                <strong id="summary-total">—</strong>
+                <span id="summary-total-note">estimated</span>
+              </div>
+            </div>
+            <div class="cost-bar" id="summary-cost-bar" aria-hidden="true"></div>
+            <div class="cost-legend" id="summary-cost-legend"></div>
+            <div class="cost-breakdown" id="summary-cost-rows"></div>
+            <p class="note" id="summary-cost-note">Static list rates, excl. GST; ASR per session minute, LLM per token (input, cached, output), TTS per character.</p>
+          </section>
+
+          <section class="card summary-card">
+            <div class="summary-card-head">
+              <div>
+                <span class="kicker">Latency analysis</span>
+                <h3>Turn statistics</h3>
+              </div>
+              <span class="summary-pill" id="summary-turn-count">0 turns</span>
+            </div>
+            <p class="summary-desc" id="summary-latency-desc">—</p>
+            <div class="latency-table-wrap">
+              <table class="latency-table">
+                <thead>
+                  <tr><th>Stage</th><th>Avg</th><th>p50</th><th>p90</th><th>Min</th><th>Max</th></tr>
+                </thead>
+                <tbody id="summary-latency-rows"></tbody>
+              </table>
+            </div>
+            <p class="note">Measured per response turn from the end-of-turn event. Missing stages are shown as —.</p>
+          </section>
+        </div>
+      </div>
+
+      <div class="summary-view" id="summary-transcript-view" hidden>
+        <div class="summary-transcript-head">
+          <div>
+            <span class="kicker">Full session</span>
+            <h3>Transcript</h3>
+          </div>
+          <span class="summary-pill" id="summary-transcript-count">0 turns</span>
+        </div>
+        <div class="summary-transcript" id="summary-transcript"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/script.js"></script>
+</body>
+</html>

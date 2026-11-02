@@ -1,0 +1,565 @@
+<!doctype html><title>On-Device Memory Assistant</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+  /* Same palette as the boxes drawn on the feed (see draw.py). */
+  :root { --bg:#0b0b0b; --panel:#f0f4f6; --ink:#20262d; --teal:#009688;
+          --violet:#6047ff; --red:#dc244c; --dim:#6b7280; --line:#d9e0e4;
+          --orange:#d97706 }
+  * { box-sizing:border-box }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--ink);
+              font-family:system-ui,-apple-system,sans-serif;
+              touch-action:manipulation }
+  #app  { height:100%; display:flex; flex-direction:column }
+  #view { width:calc(100% - 16px); margin:8px 8px 0; border-radius:16px;
+          overflow:hidden; background:#000; object-fit:contain;
+          flex:0 1 auto; min-height:0; max-height:50vh }
+  #side { flex:1; min-height:0; display:flex; flex-direction:column;
+          background:var(--panel) }
+  #panel { flex:1; min-height:0; overflow-y:auto; padding:14px 16px }
+  @media (min-width:640px) and (orientation:landscape) {
+    #app  { flex-direction:row }
+    #view { width:auto; flex:1; min-width:0; height:calc(100% - 16px);
+            margin:8px 0 8px 8px; max-height:none }
+    #side { flex:0 0 min(400px, 45%) }
+  }
+  #head { display:flex; justify-content:space-between; align-items:center;
+          gap:8px; border-bottom:2px solid var(--line); padding-bottom:8px }
+  h1 { font-size:15px; letter-spacing:.14em; margin:0; color:var(--violet) }
+  #count { font-size:14px; color:var(--dim) }
+  #voice { min-height:28px; padding:0 8px; font-size:10px; letter-spacing:.06em;
+           background:var(--ink); border-radius:8px; white-space:nowrap }
+  #voice.off { background:var(--dim); opacity:.7 }
+  @media (max-width:360px) {
+    h1 { font-size:12px; letter-spacing:.06em }
+    #count { font-size:12px }
+    #voice { font-size:9px; padding:0 6px; min-height:24px }
+  }
+  #where { font-size:13px; color:var(--dim); margin-top:6px }
+  #label { display:inline-block; margin:14px 0 12px; padding:6px 14px;
+           border-radius:10px; color:#fff; background:var(--dim);
+           font-size:clamp(20px,4.5vw,30px); font-weight:700; line-height:1.15;
+           word-break:break-word }
+  #match { display:flex; align-items:center; gap:12px }
+  figure { margin:0; text-align:center; flex:0 0 auto }
+  figure img { width:76px; height:76px; object-fit:cover; border-radius:8px;
+               background:var(--line); display:block; opacity:0;
+               transition:opacity .2s }
+  figcaption { font-size:11px; color:var(--violet); margin-top:5px }
+  #gauge { flex:1; min-width:0 }
+  #track { position:relative; height:22px; border-radius:5px;
+           background:var(--line); overflow:hidden }
+  #fill { height:100%; width:0; background:var(--red); transition:width .2s }
+  #mark { position:absolute; top:0; bottom:0; width:3px; background:var(--ink) }
+  #nums { display:flex; justify-content:space-between; margin-top:5px;
+          font-size:12px; color:var(--dim) }
+  #score { font-weight:700; color:var(--ink); font-size:15px }
+  #note { font-size:14px; color:var(--dim); font-style:italic; margin-top:12px }
+  .card { border:2px solid var(--dim); border-radius:10px; padding:10px 12px;
+          margin-top:16px }
+  .card h2 { font-size:13px; letter-spacing:.1em; margin:0 0 8px }
+  .sight { margin-top:12px; font-size:14px }
+  .sight .lbl { font-weight:700 }
+  .sight .shot { display:flex; gap:10px; align-items:flex-start; margin-top:4px }
+  .sight .shot img { width:150px; aspect-ratio:4/3; object-fit:contain;
+                     border-radius:8px; background:var(--line); flex:0 0 auto }
+  .meta { font-size:12px; color:var(--violet) }
+  #log { margin-top:18px; font-size:12px; color:var(--dim); line-height:1.7 }
+  #status { flex:0 0 auto; visibility:hidden; height:38px; padding:9px 16px;
+            background:var(--ink); color:#fff; font-size:14px; line-height:20px;
+            white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+  #bar { flex:0 0 auto; display:grid; grid-template-columns:1fr 1fr; gap:8px;
+         padding:10px; background:#e2e8ea;
+         padding-bottom:calc(10px + env(safe-area-inset-bottom)) }
+  button { border:0; border-radius:12px; color:#fff; font-weight:700;
+           -webkit-user-select:none; user-select:none; touch-action:none }
+  #teach,#ask { min-height:66px; font-size:clamp(17px,4vw,21px) }
+  #teach { background:var(--teal) }
+  #ask { background:var(--violet) }
+  #memory,#cam { min-height:44px; font-size:12px; letter-spacing:.06em;
+                 padding:0 6px }
+  #memory { background:var(--ink) }
+  #cam { background:#52616b }
+  #cam.on { background:var(--teal) }
+  #teach.off, #ask.off { opacity:.4 }
+  #teach.rec, #ask.rec { background:var(--red);
+                         box-shadow:0 0 0 4px #fff inset }
+
+  /* Memory browsing replaces the live view. */
+  #mem { position:fixed; inset:0; z-index:9; background:var(--panel);
+         display:none; flex-direction:column }
+  #mem.on { display:flex }
+  #memhead { flex:0 0 auto; display:flex; align-items:center; gap:10px;
+             border-bottom:2px solid var(--line); background:#e2e8ea;
+             padding:calc(10px + env(safe-area-inset-top)) 12px 10px }
+  #memhead h1 { flex:0 0 auto }
+  #memmeta { flex:1; font-size:13px; color:var(--dim) }
+  #memclose { background:var(--ink); min-height:40px; padding:0 18px;
+              font-size:14px }
+  #memlist { flex:1; min-height:0; overflow-y:auto; display:grid; gap:12px;
+             align-content:start; grid-auto-rows:max-content; padding:12px;
+             max-width:1200px; width:100%; margin:0 auto;
+             grid-template-columns:repeat(auto-fill, minmax(170px, 1fr));
+             padding-bottom:calc(24px + env(safe-area-inset-bottom)) }
+  .obj { border:2px solid var(--line); border-radius:12px; background:#fff;
+         overflow:hidden }
+  .obj img { display:block; width:100%; aspect-ratio:4/3; object-fit:contain;
+             background:var(--line) }
+  .obj .body { padding:9px 11px }
+  .name { font-size:17px; font-weight:700; word-break:break-word }
+  .said { font-size:13px; color:var(--dim); font-style:italic; margin-top:3px }
+  .foot { display:flex; align-items:center; gap:8px; margin-top:9px;
+          flex-wrap:wrap }
+  .foot .meta { flex:1 0 100% }
+  .obj button { flex:1 1 0; min-height:36px; padding:0 8px; font-size:12px;
+                background:#fff; color:var(--red); border:2px solid var(--red) }
+  .obj button.armed { background:var(--red); color:#fff }
+  #empty { grid-column:1/-1; color:var(--dim); font-size:14px; padding:18px 4px }
+</style>
+<div id="app">
+  <img id="view" src="/stream">
+  <div id="side">
+    <div id="panel">
+      <div id="head"><h1>ASSISTANT MEMORY</h1><span id="count"></span><button id="voice" title="Speak answers aloud">VOICE ON</button></div>
+      <div id="where"></div>
+      <div id="label">looking&hellip;</div>
+      <div id="match">
+        <figure><img id="thumbA"><figcaption>remembers</figcaption></figure>
+        <div id="gauge">
+          <div id="track"><div id="fill"></div><div id="mark"></div></div>
+          <div id="nums"><span id="score"></span><span id="thr"></span></div>
+        </div>
+        <figure><img id="thumbB"><figcaption>sees now</figcaption></figure>
+      </div>
+      <div id="note"></div>
+      <div id="card"></div>
+      <div id="log"></div>
+    </div>
+    <div id="status"></div>
+    <div id="bar">
+      <button id="teach" data-name="TEACH">TAP&nbsp;&middot;&nbsp;TEACH</button>
+      <button id="ask" data-name="ASK">TAP&nbsp;&middot;&nbsp;ASK</button>
+      <button id="memory">MEMORY</button>
+      <button id="cam" title="Use this device's camera as the eyes">CAM: LAPTOP</button>
+    </div>
+  </div>
+</div>
+<div id="mem">
+  <div id="memhead">
+    <h1>MEMORY</h1><span id="memmeta"></span>
+    <button id="memclose">CLOSE</button>
+  </div>
+  <div id="memlist"></div>
+</div>
+<script>
+  const $ = id => document.getElementById(id);
+  const img = $('view');
+  // Free the connection while the memory panel covers the feed.
+  let paused = false;
+  img.onerror = () => setTimeout(() => {
+    if (!paused) img.src = '/stream?' + Date.now();
+  }, 1000);
+
+  const el = (tag, text, cls) => {
+    const n = document.createElement(tag);
+    if (text != null) n.textContent = text;
+    if (cls) n.className = cls;
+    return n;
+  };
+  // Similarity scores below 0.5 are outside the useful calibrated range.
+  const pct = v => Math.max(0, Math.min(1, (v - 0.5) / 0.5)) * 100;
+
+  // ---- spoken answers -------------------------------------------------------
+  // The browser's own voice: no extra model, and the phone already has audio.
+  let voiceOn = true;
+  try { voiceOn = localStorage.getItem('voice') !== 'off'; } catch (e) {}
+  let speechReady = false;
+
+  function paintVoice() {
+    $('voice').textContent = voiceOn ? 'VOICE ON' : 'VOICE OFF';
+    $('voice').classList.toggle('off', !voiceOn);
+  }
+  $('voice').onclick = () => {
+    voiceOn = !voiceOn;
+    try { localStorage.setItem('voice', voiceOn ? 'on' : 'off'); } catch (e) {}
+    paintVoice();
+    if (!voiceOn && 'speechSynthesis' in window) speechSynthesis.cancel();
+  };
+  paintVoice();
+
+  // iOS wants speech started inside a gesture; an empty utterance unlocks it.
+  function unlockSpeech() {
+    if (speechReady || !('speechSynthesis' in window)) return;
+    speechReady = true;
+    try {
+      const u = new SpeechSynthesisUtterance(' ');
+      u.volume = 0;
+      speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+  function speak(text) {
+    if (!voiceOn || !text || !('speechSynthesis' in window)) return;
+    try {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'en-US';
+      u.rate = 0.95;
+      speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+  const setImg = (n, url) => {
+    n.style.opacity = url ? 1 : 0;
+    if (url && n.dataset.url !== url) { n.dataset.url = url; n.src = url; }
+  };
+
+  // ---- the panel: /state, four times a second -------------------------------
+  let shownSeq = null, statusAt = 0, shownCard = '';
+  let firstState = true, spokenCardSeq = -1;
+  function render(s) {
+    $('count').textContent = s.count + ' memories';
+    $('where').textContent = s.where ? 'here: ' + s.where : '';
+    if (s.frame) {  // follow the camera that is actually feeding the stream
+      $('view').style.aspectRatio = s.frame.w + ' / ' + s.frame.h;
+    }
+    const f = s.focus;
+    const known = f && f.label;
+    $('label').textContent = f
+      ? (f.label || (f.guess ? f.guess + '? \u2014 keep teaching'
+                             : 'UNKNOWN \u2014 tap TEACH'))
+      : 'looking\u2026';
+    $('label').style.background =
+      f ? (known ? 'var(--teal)' : f.guess ? 'var(--orange)' : 'var(--red)')
+        : 'var(--dim)';
+    $('fill').style.width = (f ? pct(f.score) : 0) + '%';
+    $('fill').style.background =
+      f && f.score >= s.threshold ? 'var(--teal)'
+        : f && f.guess ? 'var(--orange)' : 'var(--red)';
+    $('mark').style.left = pct(s.threshold) + '%';
+    $('score').textContent = f && f.score ? f.score.toFixed(3) : '';
+    $('thr').textContent = 'bar ' + s.threshold.toFixed(2);
+    setImg($('thumbA'), f && f.thumb ? '/thumb?f=' + f.thumb : null);
+    $('note').textContent = f && f.note ? '\u201c' + f.note + '\u201d' : '';
+    $('teach').classList.toggle('off', !s.teachable);
+
+    const key = JSON.stringify(s.card);
+    if (key !== shownCard) { shownCard = key; drawCard(s.card); }
+    if (!firstState && s.card && s.card.kind === 'answer'
+        && s.card_seq !== spokenCardSeq) {
+      spokenCardSeq = s.card_seq;
+      speak(s.card.say);
+    }
+    firstState = false;
+
+    const log = $('log');
+    log.replaceChildren();
+    if (s.events.length) log.append(el('div', 'memory writes'));
+    for (const e of s.events) log.append(el('div', e));
+
+    const msg = s.status || (s.busy ? 'working\u2026' : '');
+    if (s.status_seq !== shownSeq) {
+      statusAt = shownSeq === null ? 0 : Date.now();
+      shownSeq = s.status_seq;
+    }
+    const show = msg && (s.busy || Date.now() - statusAt < 6000);
+    $('status').style.visibility = show ? 'visible' : 'hidden';
+    $('status').textContent = msg;
+  }
+
+  function drawCard(c) {
+    const box = $('card');
+    box.replaceChildren();
+    if (!c) return;
+    const card = el('div', null, 'card');
+    if (c.kind === 'taught') {
+      card.style.borderColor = 'var(--teal)';
+      const h = el('h2', 'MEMORY WRITTEN'); h.style.color = 'var(--teal)';
+      card.append(h, el('div', 'vectors: image + text'));
+      if (c.where) card.append(el('div', 'here: ' + c.where, 'meta'));
+      card.append(el('div', '\u201c' + c.transcript + '\u201d'));
+    } else if (c.kind === 'forgot') {
+      card.style.borderColor = 'var(--red)';
+      const h = el('h2', 'MEMORY DELETED'); h.style.color = 'var(--red)';
+      card.append(h, el('div',
+        '"' + c.label + '" \u00b7 ' + c.n + ' point(s) removed'));
+    } else {
+      card.style.borderColor = 'var(--violet)';
+      const h = el('h2', 'RECALL'); h.style.color = 'var(--violet)';
+      card.append(h, el('div', 'Q: \u201c' + c.q + '\u201d'));
+      card.append(el('div', c.say, 'meta'));
+      for (const hit of c.hits) {
+        const s = el('div', null, 'sight');
+        s.append(el('div', hit.label || 'unknown', 'lbl'));
+        const shot = el('div', null, 'shot');
+        if (hit.thumb) {
+          const im = el('img'); im.src = '/thumb?f=' + hit.thumb;
+          im.style.opacity = 1; shot.append(im);
+        }
+        const col = el('div');
+        col.append(el('div', hit.when +
+          (hit.kind ? ' \u00b7 ' + (hit.kind === 'taught' ? 'taught' : 'seen')
+                    : '')));
+        if (hit.where) col.append(el('div', hit.where, 'meta'));
+        shot.append(col);
+        s.append(shot);
+        card.append(s);
+      }
+    }
+    box.append(card);
+  }
+
+  (async function poll() {
+    for (;;) {
+      try { render(await (await fetch('/state')).json()); } catch (e) {}
+      await new Promise(r => setTimeout(r, 250));
+    }
+  })();
+  // Refresh the focused crop once per second for comparison.
+  setInterval(() => { $('thumbB').src = '/crop.jpg?' + Date.now(); }, 1000);
+  $('thumbB').onload  = () => { $('thumbB').style.opacity = 1; };
+  $('thumbB').onerror = () => { $('thumbB').style.opacity = 0; };
+
+  // ---- tap TEACH / ASK to record from THIS device's mic --------------------
+  // The mic needs a secure origin: localhost over HTTP, or the HTTPS URL on a phone.
+  const WORKLET = URL.createObjectURL(new Blob([
+    "class Rec extends AudioWorkletProcessor{process(i){const c=i[0][0];" +
+    "if(c)this.port.postMessage(c.slice(0));return true}}" +
+    "registerProcessor('rec',Rec)"], {type:'text/javascript'}));
+  let ctx, stream, chunks = [], holding = false, rate = 16000;
+  let recKind = null, recBtn = null, recTimer = null, recReady = false;
+  let micReady;
+
+  function mic() {
+    if (!micReady) micReady = openMic().catch(e => { micReady = null; throw e; });
+    return micReady;
+  }
+  async function openMic() {
+    if (!window.isSecureContext || !navigator.mediaDevices) {
+      throw new Error('this page needs HTTPS or localhost for the microphone; '
+        + 'open the https:// address the app printed');
+    }
+    if (ctx) { ctx.close().catch(() => {}); ctx = null; }
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        channelCount: { ideal: 1 },
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+    });
+    const AC = window.AudioContext || window.webkitAudioContext;
+    try {
+      ctx = new AC({ sampleRate: 16000 });
+    } catch (e) {
+      ctx = new AC();        // some phones only accept 44.1/48 kHz
+    }
+    await ctx.resume();
+    await ctx.audioWorklet.addModule(WORKLET);
+    rate = ctx.sampleRate;
+    const node = new AudioWorkletNode(ctx, 'rec');
+    node.port.onmessage = e => { if (holding) chunks.push(e.data); };
+    ctx.createMediaStreamSource(stream).connect(node);
+    // A silent path to the destination keeps the graph running on Safari.
+    const mute = ctx.createGain();
+    mute.gain.value = 0;
+    node.connect(mute).connect(ctx.destination);
+    stream.getTracks().forEach(t => { t.onended = () => { micReady = null; }; });
+  }
+  // Browser permissions require a gesture, so warm on the first touch.
+  // The camera button is skipped: it asks for the camera itself, and two
+  // permission prompts at once confuse a phone.
+  addEventListener('pointerdown', e => {
+    unlockSpeech();
+    if (e.target.closest && e.target.closest('#cam')) return;
+    mic().catch(() => {});
+  }, { once: true });
+
+  async function start(kind, btn) {
+    if (holding) return;
+    holding = true; recKind = kind; recBtn = btn; recReady = false;
+    chunks = [];
+    btn.textContent = 'STOP\u00a0\u00b7\u00a0' + btn.dataset.name;
+    btn.classList.add('rec');
+    otherBtn(btn).classList.add('off');
+    try {
+      await mic();
+      if (ctx.state !== 'running') await ctx.resume();
+    } catch (e) {
+      resetRec();
+      alert('microphone unavailable: ' + e.message);
+      return;
+    }
+    if (!holding || recBtn !== btn) return;  // stopped while the prompt was open
+    recReady = true;
+    recTimer = setTimeout(stop, 30000);      // never record forever
+  }
+  const otherBtn = b => b.id === 'teach' ? $('ask') : $('teach');
+  function resetRec() {
+    clearTimeout(recTimer); recTimer = null;
+    if (recBtn) {
+      recBtn.textContent = 'TAP\u00a0\u00b7\u00a0' + recBtn.dataset.name;
+      recBtn.classList.remove('rec');
+      otherBtn(recBtn).classList.remove('off');
+    }
+    holding = false; recReady = false; recKind = null; recBtn = null;
+  }
+  function stop() {
+    if (!holding) return;
+    if (!recReady) { resetRec(); return; }   // cancelled before the mic was ready
+    const kind = recKind;
+    const wav = encodeWav(chunks, rate);
+    resetRec();
+    fetch('/audio?k=' + kind, { method: 'POST', body: wav })
+      .catch(() => {});
+  }
+  function encodeWav(chunks, rate) {
+    const n = chunks.reduce((a, c) => a + c.length, 0);
+    const buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
+    const s = (o, t) => {
+      for (let i = 0; i < t.length; i++) v.setUint8(o + i, t.charCodeAt(i));
+    };
+    s(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); s(8, 'WAVE'); s(12, 'fmt ');
+    v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true);
+    v.setUint16(32, 2, true); v.setUint16(34, 16, true); s(36, 'data');
+    v.setUint32(40, n * 2, true);
+    let o = 44;
+    for (const c of chunks) for (let i = 0; i < c.length; i++, o += 2) {
+      const x = Math.max(-1, Math.min(1, c[i]));
+      v.setInt16(o, x < 0 ? x * 0x8000 : x * 0x7fff, true);
+    }
+    return buf;
+  }
+  for (const [id, k] of [['teach', 't'], ['ask', 'a']]) {
+    const btn = $(id);
+    btn.onclick = () => {
+      if (recBtn === btn) { stop(); return; }
+      if (holding) return;               // the other action is recording
+      start(k, btn);
+    };
+  }
+
+  // ---- use this device's camera as the eyes -------------------------------
+  // Frames are posted to the laptop, which still runs the detector and CLIP.
+  let camOn = false, camStream = null, camVideo = null, camTimer = null;
+  let camSending = false;
+  const camBtn = $('cam');
+  camBtn.onclick = () => setPhoneCamera(!camOn);
+  addEventListener('pagehide', () => {
+    if (holding) stop();
+    setPhoneCamera(false);
+  });
+
+  async function setPhoneCamera(on) {
+    if (on === camOn) return;
+    if (!on) {
+      camOn = false;
+      camBtn.textContent = 'CAM: LAPTOP';
+      camBtn.classList.remove('on');
+      clearInterval(camTimer); camTimer = null;
+      if (camStream) camStream.getTracks().forEach(t => t.stop());
+      if (camVideo) { camVideo.srcObject = null; camVideo.remove(); }
+      camStream = camVideo = null;
+      return;
+    }
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' },
+                 width: { ideal: 1280 }, height: { ideal: 960 },
+                 aspectRatio: { ideal: 4 / 3 } },
+        audio: false,
+      });
+    } catch (e) {
+      alert('phone camera unavailable: ' + e.message);
+      return;
+    }
+    camStream = stream; camOn = true;
+    camBtn.textContent = 'CAM: PHONE';
+    camBtn.classList.add('on');
+    camVideo = el('video');
+    camVideo.playsInline = true; camVideo.muted = true;
+    camVideo.autoplay = true; camVideo.style.display = 'none';
+    camVideo.srcObject = stream;
+    document.body.append(camVideo);
+    await camVideo.play().catch(() => {});
+    const canvas = document.createElement('canvas');
+    const ctx2d = canvas.getContext('2d');
+    camTimer = setInterval(() => {
+      if (camSending || !camOn || camVideo.readyState < 2) return;
+      const vw = camVideo.videoWidth, vh = camVideo.videoHeight;
+      if (!vw || !vh) return;
+      const s = Math.min(1, 960 / Math.max(vw, vh));
+      canvas.width = Math.round(vw * s);
+      canvas.height = Math.round(vh * s);
+      ctx2d.drawImage(camVideo, 0, 0, canvas.width, canvas.height);
+      camSending = true;
+      canvas.toBlob(blob => {
+        if (!blob || !camOn) { camSending = false; return; }
+        fetch('/frame', { method: 'POST', body: blob })
+          .catch(() => {}).finally(() => { camSending = false; });
+      }, 'image/jpeg', 0.62);
+    }, 170);
+  }
+
+  // ---- the memory tab ------------------------------------------------------
+  function openMem() {
+    if (holding) stop();
+    $('mem').classList.add('on');
+    paused = true; img.removeAttribute('src');
+    loadMemories();
+  }
+  function closeMem() {
+    if (!$('mem').classList.contains('on')) return;
+    $('mem').classList.remove('on');
+    paused = false; img.src = '/stream?' + Date.now();
+  }
+  $('memory').onclick = openMem;
+  $('memclose').onclick = closeMem;
+
+  async function loadMemories() {
+    let data;
+    try { data = await (await fetch('/memory')).json(); } catch (e) { return; }
+    $('memmeta').textContent =
+      data.total + ' objects \u00b7 ' + data.points + ' points in the shard';
+    const list = $('memlist');
+    list.replaceChildren();
+    if (!data.objects.length) {
+      list.append(el('div', 'nothing taught yet \u2014 tap TEACH and say ' +
+        '"this is my mug"', 'empty'));
+      return;
+    }
+    for (const o of data.objects) {
+      const card = el('div', null, 'obj');
+      const shot = o.views[0] && (o.views[0].scene || o.views[0].thumb);
+      if (shot) {
+        const im = el('img'); im.src = '/thumb?f=' + shot; card.append(im);
+      }
+      const body = el('div', null, 'body');
+      body.append(el('div', o.label, 'name'));
+      if (o.views[0] && o.views[0].transcript)
+        body.append(el('div', '\u201c' + o.views[0].transcript + '\u201d',
+                       'said'));
+      const foot = el('div', null, 'foot');
+      foot.append(el('div', o.views.length + ' view(s) \u00b7 ' +
+        o.seen + ' sighting(s)', 'meta'));
+      const b = el('button', 'FORGET');
+      let armed = null;
+      b.onclick = async () => {
+        if (!armed) {
+          armed = setTimeout(() => {
+            armed = null; b.classList.remove('armed'); b.textContent = 'FORGET';
+          }, 3000);
+          b.classList.add('armed'); b.textContent = 'SURE?';
+          return;
+        }
+        clearTimeout(armed);
+        await fetch('/forget?label=' + encodeURIComponent(o.label),
+                    { method: 'POST' }).catch(() => {});
+        loadMemories();
+      };
+      foot.append(b);
+      body.append(foot);
+      card.append(body);
+      list.append(card);
+    }
+  }
+</script>

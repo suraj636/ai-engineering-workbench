@@ -1,0 +1,42 @@
+# Never bake environment files or local junk into the image.
+# (Docker does NOT read .gitignore — this is a superset tailored to the build.)
+
+# Secrets live outside the container only (compose `env_file`).
+.env
+.env.*
+!.env.example
+
+# Git-tracked docs stay in, but git-ignored local junk must not:
+.git
+.gitignore
+.venv
+venv/
+env/
+
+# Python caches
+__pycache__/
+**/__pycache__/
+*.py[cod]
+
+# Tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Logs, recordings and other local artifacts
+*.log
+logs/
+recordings/
+*.wav
+*.mp3
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Generated test artifacts; tests are not shipped in the runtime image.
+tests/results/
+
+# Saved call history lives in a mounted volume
+data/
